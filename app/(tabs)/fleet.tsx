@@ -293,7 +293,7 @@ export default function FleetScreen() {
                 </View>
               </View>
             )}
-            <Text style={styles.disclaimer}>Modelo exterior de referencia: Boeing 747, adaptación publicada bajo licencia CC BY 4.0. La vista no representa exactamente cada variante de avión. Los estados y observaciones son datos de demostración, no diagnóstico aeronáutico ni inspección certificada.</Text>
+            <Text style={styles.disclaimer}>Modelo exterior de referencia: Boeing 747 de zairiq-123, adaptación publicada bajo licencia CC BY 4.0 (Creative Commons Attribution). La vista no representa exactamente cada variante de avión. Los estados y observaciones son datos de demostración, no diagnóstico aeronáutico ni inspección certificada.</Text>
             <Pressable onPress={() => setShow3D(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Volver a la ficha</Text></Pressable>
           </View>
         </View>
