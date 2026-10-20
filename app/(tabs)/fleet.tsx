@@ -257,7 +257,7 @@ export default function FleetScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.detailModal}>
             <View style={styles.modalHeader}>
-              <View style={{ flex: 1 }}><Text style={styles.modalTitle}>Vista 3D · {selected?.registration}</Text><Text style={styles.modalSubtitle}>Esquema interactivo de componentes</Text></View>
+              <View style={{ flex: 1 }}><Text style={styles.modalTitle}>Vista 3D · {selected?.registration}</Text><Text style={styles.modalSubtitle}>Modelo exterior 3D y detalle de componentes</Text></View>
               <Pressable onPress={() => setShow3D(false)} accessibilityLabel="Cerrar vista 3D"><Ionicons name="close" size={24} color="#64748B" /></Pressable>
             </View>
             <View style={styles.viewer}>
@@ -268,7 +268,7 @@ export default function FleetScreen() {
               <View style={{ marginTop: 10 }}>
                 <AircraftModel3D height={300} />
               </View>
-              <Text style={styles.viewerHelp}>Modelo exterior de referencia. Selecciona un componente en la lista inferior para revisar su estado y las observaciones registradas.</Text>
+              <Text style={styles.viewerHelp}>Arrastra para girar y usa la rueda o el gesto de pellizco para acercar. Elige una pieza en la lista inferior para consultar su estado y observaciones.</Text>
             </View>
             <ScrollView style={styles.partsList} nestedScrollEnabled>
               {selected?.parts.map((part, index) => (
@@ -293,7 +293,7 @@ export default function FleetScreen() {
                 </View>
               </View>
             )}
-            <Text style={styles.disclaimer}>El modelo 3D es una referencia visual exterior. Los estados y observaciones son datos de demostración, no diagnóstico aeronáutico ni inspección certificada.</Text>
+            <Text style={styles.disclaimer}>Modelo exterior de referencia: Boeing 747, adaptación publicada bajo licencia CC BY 4.0. La vista no representa exactamente cada variante de avión. Los estados y observaciones son datos de demostración, no diagnóstico aeronáutico ni inspección certificada.</Text>
             <Pressable onPress={() => setShow3D(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Volver a la ficha</Text></Pressable>
           </View>
         </View>
