@@ -5,7 +5,7 @@ import { WebView } from 'react-native-webview';
 export const AIRCRAFT_MODEL_URL =
   'https://raw.githubusercontent.com/bilawalsidhu/gods-eye-view/main/public/models/airplane.glb';
 
-const viewerHtml = (modelUrl: string) => `<!doctype html>
+const viewerHtml = (modelUrl: string, markersHtml: string) => `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -23,12 +23,12 @@ const viewerHtml = (modelUrl: string) => `<!doctype html>
   svg { width:min(92%, 390px); max-height:230px; }
   .outline { stroke:#7DD3FC; stroke-width:2; stroke-linejoin:round; fill:#164E70; }
   .part { fill:#38BDF8; stroke:#BAE6FD; stroke-width:1.4; }
-  .label { font-size:11px; fill:#E0F2FE; }
+  .label { font-size:11px; fill:#E0F2FE; }\n  #markers { position:absolute; inset:0; z-index:1; pointer-events:none; }\n  .marker { position:absolute; max-width:46%; padding:6px 8px; border:1px solid currentColor; border-radius:8px; font-size:11px; font-weight:700; background:rgba(7,20,35,.92); box-shadow:0 2px 10px #0005; }\n  .marker strong { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.3px; }\n  .marker .pin { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; background:currentColor; }\n  .marker[data-pos='leftWing'] { left:2%; top:42%; } .marker[data-pos='rightWing'] { right:2%; top:42%; }\n  .marker[data-pos='engineL'] { left:3%; top:64%; } .marker[data-pos='engineR'] { right:3%; top:64%; }\n  .marker[data-pos='fuselage'] { left:36%; top:24%; } .marker[data-pos='gear'] { left:37%; bottom:10%; }\n  .marker[data-pos='tail'] { right:3%; top:17%; } .marker[data-pos='other'] { left:3%; top:10%; }
 </style>
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.4.0/model-viewer.min.js"></script>
 </head>
 <body>
-<model-viewer id="aircraft" src="${modelUrl}" alt="Modelo 3D de avión comercial" camera-controls auto-rotate rotation-per-second="12deg" shadow-intensity="1" exposure="1.15" environment-image="neutral" camera-orbit="35deg 68deg auto" min-camera-orbit="auto 15deg auto" max-camera-orbit="auto 115deg auto" interaction-prompt="auto" touch-action="pan-y" loading="eager"></model-viewer>
+<model-viewer id="aircraft" src="${modelUrl}" alt="Modelo 3D de avión comercial" camera-controls auto-rotate rotation-per-second="12deg" shadow-intensity="1" exposure="1.15" environment-image="neutral" camera-orbit="35deg 68deg auto" min-camera-orbit="auto 15deg auto" max-camera-orbit="auto 115deg auto" interaction-prompt="auto" touch-action="pan-y" loading="eager"></model-viewer>\n<div id="markers">${markersHtml}</div>
 <div id="loading"><div class="title">Cargando modelo 3D…</div><div class="hint">Si el modelo remoto no responde, mostraremos un esquema para que la vista no quede en blanco.</div></div>
 <div id="fallback" hidden>
   <div class="title">Vista esquemática del avión</div>
@@ -59,7 +59,7 @@ const viewerHtml = (modelUrl: string) => `<!doctype html>
     finished = true;
     loading.hidden = true;
     fallback.hidden = false;
-    model.style.display = 'none';
+    model.style.display = 'none';\n    document.getElementById('markers').style.display = 'none';
   }
   model.addEventListener('load', function () {
     finished = true;
