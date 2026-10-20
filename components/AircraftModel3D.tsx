@@ -72,10 +72,34 @@ const viewerHtml = (modelUrl: string, markersHtml: string) => `<!doctype html>
 </body>
 </html>`;
 
-type Props = { height?: number };
+export type AircraftMarkerPart = { name: string; status: 'Correcto' | 'Revisar' | 'Crítico' };
+type Props = { height?: number; parts?: AircraftMarkerPart[] };
 
-export default function AircraftModel3D({ height = 290 }: Props) {
-  const html = viewerHtml(AIRCRAFT_MODEL_URL);
+const markerPosition = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes('ala izquierda')) return 'leftWing';
+  if (n.includes('ala derecha')) return 'rightWing';
+  if (n.includes('motor izquierdo')) return 'engineL';
+  if (n.includes('motor derecho')) return 'engineR';
+  if (n.includes('fuselaje') || n.includes('cabina')) return 'fuselage';
+  if (n.includes('tren') || n.includes('freno') || n.includes('rueda')) return 'gear';
+  if (n.includes('timón') || n.includes('elevador') || n.includes('estabilizador')) return 'tail';
+  return 'other';
+};
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (ch) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[ch] as string));
+
+export default function AircraftModel3D({ height = 290, parts = [] }: Props) {
+  const flaggedParts = parts.filter((part) => part.status !== 'Correcto');
+  const markersHtml = flaggedParts.map((part) => {
+    const color = part.status === 'Crítico' ? '#F87171' : '#FDBA74';
+    return '<div class="marker" data-pos="' + markerPosition(part.name) +
+      '" style="color:' + color + '"><strong><span class="pin"></span>' +
+      escapeHtml(part.status) + '</strong>' + escapeHtml(part.name) + '</div>';
+  }).join('');
+  const html = viewerHtml(AIRCRAFT_MODEL_URL, markersHtml);
 
   if (Platform.OS === 'web') {
     const IFrame = 'iframe' as any;
