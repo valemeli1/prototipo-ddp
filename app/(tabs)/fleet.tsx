@@ -266,7 +266,7 @@ export default function FleetScreen() {
                 <View style={styles.viewerPill}><View style={styles.viewerDot} /><Text style={styles.viewerPillText}>Gira y acerca con los dedos o el ratón</Text></View>
               </View>
               <View style={{ marginTop: 10 }}>
-                <AircraftModel3D height={300} />
+                <AircraftModel3D height={300} parts={selected?.parts ?? []} />
               </View>
               <Text style={styles.viewerHelp}>Arrastra para girar y usa la rueda o el gesto de pellizco para acercar. Elige una pieza en la lista inferior para consultar su estado y observaciones.</Text>
             </View>
