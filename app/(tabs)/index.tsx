@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +7,12 @@ import {
   ScrollView,
   Pressable,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+// Ruta corregida: sube dos niveles desde app/(tabs)/ para llegar a services/
+import { getActiveUser, UserAccount } from '../../services/historyStorage';
 
 const COLORS = {
   background: '#F4F7FB',
@@ -68,6 +72,13 @@ export default function DashboardScreen() {
   const isCompact = width < 620;
   const router = useRouter();
 
+  const [activeUser, setActiveUser] = useState<UserAccount | null>(null);
+
+  useEffect(() => {
+    const user = getActiveUser();
+    setActiveUser(user);
+  }, []);
+
   const openFleet = () => router.push('/(tabs)/fleet');
   const openAlerts = () => router.push('/(tabs)/alerts');
   const openChecklist = () => router.push('/(tabs)/checklist');
@@ -82,7 +93,9 @@ export default function DashboardScreen() {
         <View style={styles.headingBlock}>
           <Text style={styles.eyebrow}>OPERACIONES / RESUMEN</Text>
           <Text style={styles.mainTitle}>Centro de Control OMA</Text>
-          <Text style={styles.subtitle}>Sistema de gestión de mantenimiento aeronáutico</Text>
+          <Text style={styles.subtitle}>
+            Técnico activo: <Text style={{ fontWeight: 'bold', color: COLORS.navy }}>{activeUser?.name || 'Valeria Hernández'}</Text> ({activeUser?.license || 'TMA #402'})
+          </Text>
         </View>
         <View style={styles.statusPill}>
           <View style={styles.statusDot} />
@@ -221,7 +234,7 @@ export default function DashboardScreen() {
         </Pressable>
       </View>
 
-      <Text style={styles.footerNote}>OMA · Panel de demostración · Los indicadores mostrados son datos de ejemplo.</Text>
+      <Text style={styles.footerNote}>OMA · Panel de gestión de mantenimiento aeronáutico.</Text>
     </ScrollView>
   );
 }
@@ -311,3 +324,4 @@ const styles = StyleSheet.create({
   quickSubtitle: { color: COLORS.muted, fontSize: 10, marginTop: 5, lineHeight: 14 },
   footerNote: { color: '#8A97A9', fontSize: 10, textAlign: 'center', marginTop: 4 },
 });
+

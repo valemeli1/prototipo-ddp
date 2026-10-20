@@ -8,12 +8,35 @@ import AircraftModel3D from '../../components/AircraftModel3D';
 
 type Part = { name: string; status: 'Correcto' | 'Revisar' | 'Crítico'; note: string };
 type Aircraft = {
-  id: string; registration: string; model: string; hours: string;
+  id: string;
+  registration: string;
+  model: string;
+  hours: string;
   status: 'Operativo' | 'En mantenimiento' | 'AOG';
-  nextReview: string; parts: Part[];
+  nextReview: string;
+  parts: Part[];
 };
 
-const initialAircraft: Aircraft[] = [
+const detailedParts: Part[] = [
+  { name: 'Motor izquierdo', status: 'Correcto', note: 'Motor y góndola: inspección visual de demostración; revisar registros de mantenimiento reales.' },
+  { name: 'Motor derecho', status: 'Correcto', note: 'Motor y góndola: inspección visual de demostración; revisar registros de mantenimiento reales.' },
+  { name: 'Ala izquierda', status: 'Correcto', note: 'Estructura, paneles y superficies del ala izquierda. Estado ilustrativo, requiere inspección técnica.' },
+  { name: 'Ala derecha', status: 'Correcto', note: 'Estructura, paneles y superficies del ala derecha. Estado ilustrativo, requiere inspección técnica.' },
+  { name: 'Fuselaje', status: 'Correcto', note: 'Revestimiento y estructura exterior del fuselaje. El modelo 3D no detecta daños reales.' },
+  { name: 'Cabina y parabrisas', status: 'Correcto', note: 'Cabina de mando, parabrisas y ventanillas: registro de demostración.' },
+  { name: 'Tren de aterrizaje', status: 'Correcto', note: 'Conjunto de tren, amortiguadores y ruedas: verificar con documentación técnica aprobada.' },
+  { name: 'Flaps y slats', status: 'Correcto', note: 'Superficies hipersustentadoras del ala; estado ilustrativo sin conexión a sensores.' },
+  { name: 'Timón de dirección', status: 'Correcto', note: 'Superficie de control vertical; estado de ejemplo.' },
+  { name: 'Elevadores', status: 'Correcto', note: 'Superficies de control horizontal; estado de ejemplo.' },
+  { name: 'Estabilizadores', status: 'Correcto', note: 'Estabilizador horizontal y vertical; estado de ejemplo.' },
+  { name: 'Sistema hidráulico', status: 'Correcto', note: 'Sistema hidráulico: el estado debe confirmarse mediante inspección y registros reales.' },
+  { name: 'Sistema eléctrico', status: 'Correcto', note: 'Generación y distribución eléctrica: dato de demostración.' },
+  { name: 'Aviónica', status: 'Correcto', note: 'Equipos electrónicos y navegación: dato de demostración.' },
+  { name: 'Frenos y ruedas', status: 'Correcto', note: 'Frenos, neumáticos y ruedas: requiere inspección según manual aplicable.' },
+  { name: 'Sistema de combustible', status: 'Correcto', note: 'Depósitos y alimentación de combustible: estado ilustrativo.' },
+];
+
+const RAW_AIRCRAFT: Aircraft[] = [
   {
     id: '1', registration: 'N102-YS', model: 'Boeing 737-800', hours: '4,210',
     status: 'Operativo', nextReview: 'C2 · 120 h',
@@ -45,44 +68,28 @@ const initialAircraft: Aircraft[] = [
   },
 ];
 
-
-const detailedParts: Part[] = [
-  { name: 'Motor izquierdo', status: 'Correcto', note: 'Motor y góndola: inspección visual de demostración; revisar registros de mantenimiento reales.' },
-  { name: 'Motor derecho', status: 'Correcto', note: 'Motor y góndola: inspección visual de demostración; revisar registros de mantenimiento reales.' },
-  { name: 'Ala izquierda', status: 'Correcto', note: 'Estructura, paneles y superficies del ala izquierda. Estado ilustrativo, requiere inspección técnica.' },
-  { name: 'Ala derecha', status: 'Correcto', note: 'Estructura, paneles y superficies del ala derecha. Estado ilustrativo, requiere inspección técnica.' },
-  { name: 'Fuselaje', status: 'Correcto', note: 'Revestimiento y estructura exterior del fuselaje. El modelo 3D no detecta daños reales.' },
-  { name: 'Cabina y parabrisas', status: 'Correcto', note: 'Cabina de mando, parabrisas y ventanillas: registro de demostración.' },
-  { name: 'Tren de aterrizaje', status: 'Correcto', note: 'Conjunto de tren, amortiguadores y ruedas: verificar con documentación técnica aprobada.' },
-  { name: 'Flaps y slats', status: 'Correcto', note: 'Superficies hipersustentadoras del ala; estado ilustrativo sin conexión a sensores.' },
-  { name: 'Timón de dirección', status: 'Correcto', note: 'Superficie de control vertical; estado de ejemplo.' },
-  { name: 'Elevadores', status: 'Correcto', note: 'Superficies de control horizontal; estado de ejemplo.' },
-  { name: 'Estabilizadores', status: 'Correcto', note: 'Estabilizador horizontal y vertical; estado de ejemplo.' },
-  { name: 'Sistema hidráulico', status: 'Correcto', note: 'Sistema hidráulico: el estado debe confirmarse mediante inspección y registros reales.' },
-  { name: 'Sistema eléctrico', status: 'Correcto', note: 'Generación y distribución eléctrica: dato de demostración.' },
-  { name: 'Aviónica', status: 'Correcto', note: 'Equipos electrónicos y navegación: dato de demostración.' },
-  { name: 'Frenos y ruedas', status: 'Correcto', note: 'Frenos, neumáticos y ruedas: requiere inspección según manual aplicable.' },
-  { name: 'Sistema de combustible', status: 'Correcto', note: 'Depósitos y alimentación de combustible: estado ilustrativo.' },
-];
+const initialAircraft: Aircraft[] = RAW_AIRCRAFT.map(plane => {
+  const recorded = new Map(plane.parts.map(p => [p.name, p]));
+  return {
+    ...plane,
+    parts: detailedParts.map(p => recorded.get(p.name) ?? { ...p }),
+  };
+});
 
 const statusColor = (status: Part['status'] | Aircraft['status']) =>
   status === 'Crítico' || status === 'AOG' ? '#DC2626'
     : status === 'Revisar' || status === 'En mantenimiento' ? '#D97706' : '#15803D';
 
-
-initialAircraft.forEach((plane) => {
-  const recorded = new Map(plane.parts.map((part) => [part.name, part]));
-  plane.parts = detailedParts.map((part) => recorded.get(part.name) ?? { ...part });
-});
-
 export default function FleetScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= 760;
+
   const [aircraft, setAircraft] = useState<Aircraft[]>(initialAircraft);
   const [selected, setSelected] = useState<Aircraft | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [show3D, setShow3D] = useState(false);
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
+
   const [registration, setRegistration] = useState('');
   const [model, setModel] = useState('');
   const [hours, setHours] = useState('');
@@ -110,19 +117,23 @@ export default function FleetScreen() {
       setFormError('Ya existe una aeronave con esa matrícula.');
       return;
     }
+
     const newPlane: Aircraft = {
-      id: String(Date.now()), registration: registration.trim().toUpperCase(),
-      model: model.trim(), hours: hours.trim() || '0', status: 'Operativo',
+      id: String(Date.now()),
+      registration: registration.trim().toUpperCase(),
+      model: model.trim(),
+      hours: hours.trim() || '0',
+      status: 'Operativo',
       nextReview: 'Por programar',
-      parts: [
-        { name: 'Motor izquierdo', status: 'Correcto', note: 'Sin inspección registrada. Completa la ficha técnica.' },
-        { name: 'Motor derecho', status: 'Correcto', note: 'Sin inspección registrada. Completa la ficha técnica.' },
-        { name: 'Tren de aterrizaje', status: 'Correcto', note: 'Sin inspección registrada. Completa la ficha técnica.' },
-        { name: 'Fuselaje y alas', status: 'Correcto', note: 'Sin inspección registrada. Completa la ficha técnica.' },
-      ],
+      parts: detailedParts.map(p => ({ ...p })),
     };
+
     setAircraft(current => [newPlane, ...current]);
-    setRegistration(''); setModel(''); setHours(''); setFormError(''); setShowAdd(false);
+    setRegistration('');
+    setModel('');
+    setHours('');
+    setFormError('');
+    setShowAdd(false);
   };
 
   const updatePartStatus = (part: Part, next: Part['status']) => {
@@ -142,7 +153,7 @@ export default function FleetScreen() {
           <Text style={styles.title}>Gestión de flota</Text>
           <Text style={styles.subtitle}>Administra aeronaves, consulta sus componentes y registra hallazgos de inspección.</Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => setShowAdd(true)} style={styles.addButton}>
+        <Pressable onPress={() => setShowAdd(true)} style={styles.addButton}>
           <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
           <Text style={styles.addButtonText}>Agregar avión</Text>
         </Pressable>
@@ -191,7 +202,7 @@ export default function FleetScreen() {
                   {issues > 0 && <Text style={styles.issueText}>{issues} componente(s) por revisar</Text>}
                 </View>
               </View>
-              <Pressable accessibilityRole="button" onPress={() => openDetails(plane)} style={styles.viewButton}>
+              <Pressable onPress={() => openDetails(plane)} style={styles.viewButton}>
                 <Text style={styles.viewButtonText}>Ver avión</Text>
                 <Ionicons name="chevron-forward" size={16} color="#0369A1" />
               </Pressable>
@@ -202,15 +213,16 @@ export default function FleetScreen() {
 
       <View style={styles.note}>
         <Ionicons name="information-circle-outline" size={19} color="#0369A1" />
-        <Text style={styles.noteText}>Los aviones y fallos precargados son ejemplos de interfaz. Los cambios se mantienen en memoria mientras la pantalla siga abierta; aún no se guardan en una base de datos.</Text>
+        <Text style={styles.noteText}>Los aviones y fallos precargados son ejemplos de interfaz. Los cambios se mantienen en memoria mientras la pantalla siga abierta.</Text>
       </View>
 
+      {/* MODAL AGREGAR AVIÓN */}
       <Modal visible={showAdd} transparent animationType="fade" onRequestClose={() => setShowAdd(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.formModal}>
             <View style={styles.modalHeader}>
               <View><Text style={styles.modalTitle}>Agregar aeronave</Text><Text style={styles.modalSubtitle}>Completa los datos básicos de la flota.</Text></View>
-              <Pressable onPress={() => setShowAdd(false)} accessibilityLabel="Cerrar formulario"><Ionicons name="close" size={24} color="#64748B" /></Pressable>
+              <Pressable onPress={() => setShowAdd(false)}><Ionicons name="close" size={24} color="#64748B" /></Pressable>
             </View>
             <Text style={styles.inputLabel}>Matrícula *</Text>
             <TextInput value={registration} onChangeText={setRegistration} placeholder="Ej. YS-815" autoCapitalize="characters" style={styles.input} />
@@ -224,13 +236,14 @@ export default function FleetScreen() {
         </View>
       </Modal>
 
+      {/* MODAL DETALLE DE AERONAVE */}
       <Modal visible={!!selected && !show3D} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.detailModal}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeader}>
                 <View style={{ flex: 1 }}><Text style={styles.modalTitle}>{selected?.registration}</Text><Text style={styles.modalSubtitle}>{selected?.model} · {selected?.hours} horas</Text></View>
-                <Pressable onPress={() => setSelected(null)} accessibilityLabel="Cerrar detalle"><Ionicons name="close" size={24} color="#64748B" /></Pressable>
+                <Pressable onPress={() => setSelected(null)}><Ionicons name="close" size={24} color="#64748B" /></Pressable>
               </View>
               <View style={styles.detailBanner}>
                 <Ionicons name="airplane" size={34} color="#FFFFFF" />
@@ -253,48 +266,54 @@ export default function FleetScreen() {
         </View>
       </Modal>
 
+      {/* MODAL VISOR 3D */}
       <Modal visible={show3D && !!selected} transparent animationType="slide" onRequestClose={() => setShow3D(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.detailModal}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}><Text style={styles.modalTitle}>Vista 3D · {selected?.registration}</Text><Text style={styles.modalSubtitle}>Modelo exterior 3D y detalle de componentes</Text></View>
-              <Pressable onPress={() => setShow3D(false)} accessibilityLabel="Cerrar vista 3D"><Ionicons name="close" size={24} color="#64748B" /></Pressable>
+              <Pressable onPress={() => setShow3D(false)}><Ionicons name="close" size={24} color="#64748B" /></Pressable>
             </View>
-            <View style={styles.viewer}>
-              <View style={styles.viewerTop}>
-                <Text style={styles.viewerLabel}>MODELO 3D INTERACTIVO</Text>
-                <View style={styles.viewerPill}><View style={styles.viewerDot} /><Text style={styles.viewerPillText}>Gira y acerca con los dedos o el ratón</Text></View>
-              </View>
-              <View style={{ marginTop: 10 }}>
-                <AircraftModel3D height={300} parts={selected?.parts ?? []} />
-              </View>
-              <Text style={styles.viewerHelp}>Arrastra para girar y usa la rueda o el gesto de pellizco para acercar. Elige una pieza en la lista inferior para consultar su estado y observaciones.</Text>
-            </View>
-            <ScrollView style={styles.partsList} nestedScrollEnabled>
-              {selected?.parts.map((part, index) => (
-                <Pressable key={part.name} onPress={() => setSelectedPart(part)} style={[styles.partPick, selectedPart?.name === part.name && styles.partPickActive]}>
-                  <View style={[styles.partNumber, { backgroundColor: statusColor(part.status) }]}><Text style={styles.partNumberText}>{index + 1}</Text></View>
-                  <View style={{ flex: 1 }}><Text style={styles.partName}>{part.name}</Text><Text style={[styles.partStatus, { color: statusColor(part.status) }]}>{part.status}</Text></View>
-                  <Ionicons name="chevron-forward" size={17} color="#64748B" />
-                </Pressable>
-              ))}
-            </ScrollView>
-            {selectedPart && (
-              <View style={styles.finding}>
-                <Text style={styles.findingTitle}>{selectedPart.name} · {selectedPart.status}</Text>
-                <Text style={styles.findingText}>{selectedPart.note}</Text>
-                <Text style={styles.inputLabel}>Actualizar estado (demo)</Text>
-                <View style={styles.statusChoices}>
-                  {(['Correcto', 'Revisar', 'Crítico'] as Part['status'][]).map(status => (
-                    <Pressable key={status} onPress={() => updatePartStatus(selectedPart, status)} style={[styles.statusChoice, selectedPart.status === status && { backgroundColor: statusColor(status) + '20', borderColor: statusColor(status) }]}>
-                      <Text style={[styles.statusChoiceText, { color: statusColor(status) }]}>{status}</Text>
-                    </Pressable>
-                  ))}
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.viewer}>
+                <View style={styles.viewerTop}>
+                  <Text style={styles.viewerLabel}>MODELO 3D INTERACTIVO</Text>
+                  <View style={styles.viewerPill}><View style={styles.viewerDot} /><Text style={styles.viewerPillText}>Gira y acerca libremente</Text></View>
+                </View>
+                <View style={{ marginTop: 10 }}>
+                  <AircraftModel3D height={290} parts={selected?.parts ?? []} />
                 </View>
               </View>
-            )}
-            <Text style={styles.disclaimer}>Modelo exterior de referencia: Boeing 747 de zairiq-123, adaptación publicada bajo licencia CC BY 4.0 (Creative Commons Attribution). La vista no representa exactamente cada variante de avión. Los estados y observaciones son datos de demostración, no diagnóstico aeronáutico ni inspección certificada.</Text>
-            <Pressable onPress={() => setShow3D(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Volver a la ficha</Text></Pressable>
+
+              <View style={styles.partsContainer}>
+                {selected?.parts.map((part, index) => (
+                  <Pressable key={part.name} onPress={() => setSelectedPart(part)} style={[styles.partPick, selectedPart?.name === part.name && styles.partPickActive]}>
+                    <View style={[styles.partNumber, { backgroundColor: statusColor(part.status) }]}><Text style={styles.partNumberText}>{index + 1}</Text></View>
+                    <View style={{ flex: 1 }}><Text style={styles.partName}>{part.name}</Text><Text style={[styles.partStatus, { color: statusColor(part.status) }]}>{part.status}</Text></View>
+                    <Ionicons name="chevron-forward" size={17} color="#64748B" />
+                  </Pressable>
+                ))}
+              </View>
+
+              {selectedPart && (
+                <View style={styles.finding}>
+                  <Text style={styles.findingTitle}>{selectedPart.name} · {selectedPart.status}</Text>
+                  <Text style={styles.findingText}>{selectedPart.note}</Text>
+                  <Text style={styles.inputLabel}>Actualizar estado (demo)</Text>
+                  <View style={styles.statusChoices}>
+                    {(['Correcto', 'Revisar', 'Crítico'] as Part['status'][]).map(status => (
+                      <Pressable key={status} onPress={() => updatePartStatus(selectedPart, status)} style={[styles.statusChoice, selectedPart.status === status && { backgroundColor: statusColor(status) + '20', borderColor: statusColor(status) }]}>
+                        <Text style={[styles.statusChoiceText, { color: statusColor(status) }]}>{status}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              <Text style={styles.disclaimer}>Los estados y observaciones son datos de demostración para gestión de mantenimiento OMA.</Text>
+              <Pressable onPress={() => setShow3D(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Volver a la ficha</Text></Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -367,19 +386,8 @@ const styles = StyleSheet.create({
   viewerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1E405C', borderRadius: 18, paddingHorizontal: 9, paddingVertical: 6 },
   viewerDot: { width: 6, height: 6, borderRadius: 4, backgroundColor: '#38BDF8' },
   viewerPillText: { color: '#E0F2FE', fontSize: 9, fontWeight: '700' },
-  planeStage: { height: 270, marginTop: 10, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  planeShadow: { position: 'absolute', width: 230, height: 95, borderRadius: 70, backgroundColor: '#071827', transform: [{ rotate: '-28deg' }], opacity: 0.65 },
-  fuselage: { position: 'absolute', width: 36, height: 210, borderRadius: 20, backgroundColor: '#E2E8F0', borderWidth: 2, borderColor: '#94A3B8', transform: [{ rotate: '34deg' }] },
-  wingBack: { position: 'absolute', width: 185, height: 50, borderRadius: 14, backgroundColor: '#64748B', borderWidth: 2, borderColor: '#94A3B8', transform: [{ rotate: '-28deg' }, { skewX: '-16deg' }] },
-  wingFront: { position: 'absolute', width: 160, height: 36, borderRadius: 11, backgroundColor: '#CBD5E1', borderWidth: 2, borderColor: '#F8FAFC', transform: [{ rotate: '-28deg' }, { skewX: '-16deg' }] },
-  tailPlane: { position: 'absolute', width: 78, height: 25, borderRadius: 8, backgroundColor: '#94A3B8', borderWidth: 2, borderColor: '#E2E8F0', top: 45, right: '24%', transform: [{ rotate: '-28deg' }] },
-  engineLeft: { position: 'absolute', width: 24, height: 47, borderRadius: 12, backgroundColor: '#38BDF8', borderWidth: 2, borderColor: '#E0F2FE', top: 130, left: '27%', transform: [{ rotate: '-28deg' }] },
-  engineRight: { position: 'absolute', width: 24, height: 47, borderRadius: 12, backgroundColor: '#38BDF8', borderWidth: 2, borderColor: '#E0F2FE', top: 80, right: '27%', transform: [{ rotate: '-28deg' }] },
-  hotspot: { position: 'absolute', width: 27, height: 27, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  hotspotText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
-  viewerHelp: { color: '#CBD5E1', fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 4 },
-  partsList: { marginTop: 10, gap: 6, maxHeight: 160 },
-  partPick: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 11, padding: 9 },
+  partsContainer: { marginTop: 12, gap: 6 },
+  partPick: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 11, padding: 9, marginBottom: 6 },
   partPickActive: { borderColor: '#0284C7', backgroundColor: '#F0F9FF' },
   partNumber: { width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   partNumberText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
