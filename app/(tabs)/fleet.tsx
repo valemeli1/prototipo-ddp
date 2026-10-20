@@ -4,6 +4,7 @@ import {
   View, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AircraftModel3D from '../../components/AircraftModel3D';
 
 type Part = { name: string; status: 'Correcto' | 'Revisar' | 'Crítico'; note: string };
 type Aircraft = {
@@ -44,9 +45,35 @@ const initialAircraft: Aircraft[] = [
   },
 ];
 
+
+const detailedParts: Part[] = [
+  { name: 'Motor izquierdo', status: 'Correcto', note: 'Motor y góndola: inspección visual de demostración; revisar registros de mantenimiento reales.' },
+  { name: 'Motor derecho', status: 'Correcto', note: 'Motor y góndola: inspección visual de demostración; revisar registros de mantenimiento reales.' },
+  { name: 'Ala izquierda', status: 'Correcto', note: 'Estructura, paneles y superficies del ala izquierda. Estado ilustrativo, requiere inspección técnica.' },
+  { name: 'Ala derecha', status: 'Correcto', note: 'Estructura, paneles y superficies del ala derecha. Estado ilustrativo, requiere inspección técnica.' },
+  { name: 'Fuselaje', status: 'Correcto', note: 'Revestimiento y estructura exterior del fuselaje. El modelo 3D no detecta daños reales.' },
+  { name: 'Cabina y parabrisas', status: 'Correcto', note: 'Cabina de mando, parabrisas y ventanillas: registro de demostración.' },
+  { name: 'Tren de aterrizaje', status: 'Correcto', note: 'Conjunto de tren, amortiguadores y ruedas: verificar con documentación técnica aprobada.' },
+  { name: 'Flaps y slats', status: 'Correcto', note: 'Superficies hipersustentadoras del ala; estado ilustrativo sin conexión a sensores.' },
+  { name: 'Timón de dirección', status: 'Correcto', note: 'Superficie de control vertical; estado de ejemplo.' },
+  { name: 'Elevadores', status: 'Correcto', note: 'Superficies de control horizontal; estado de ejemplo.' },
+  { name: 'Estabilizadores', status: 'Correcto', note: 'Estabilizador horizontal y vertical; estado de ejemplo.' },
+  { name: 'Sistema hidráulico', status: 'Correcto', note: 'Sistema hidráulico: el estado debe confirmarse mediante inspección y registros reales.' },
+  { name: 'Sistema eléctrico', status: 'Correcto', note: 'Generación y distribución eléctrica: dato de demostración.' },
+  { name: 'Aviónica', status: 'Correcto', note: 'Equipos electrónicos y navegación: dato de demostración.' },
+  { name: 'Frenos y ruedas', status: 'Correcto', note: 'Frenos, neumáticos y ruedas: requiere inspección según manual aplicable.' },
+  { name: 'Sistema de combustible', status: 'Correcto', note: 'Depósitos y alimentación de combustible: estado ilustrativo.' },
+];
+
 const statusColor = (status: Part['status'] | Aircraft['status']) =>
   status === 'Crítico' || status === 'AOG' ? '#DC2626'
     : status === 'Revisar' || status === 'En mantenimiento' ? '#D97706' : '#15803D';
+
+
+initialAircraft.forEach((plane) => {
+  const recorded = new Map(plane.parts.map((part) => [part.name, part]));
+  plane.parts = detailedParts.map((part) => recorded.get(part.name) ?? { ...part });
+});
 
 export default function FleetScreen() {
   const { width } = useWindowDimensions();
@@ -234,32 +261,16 @@ export default function FleetScreen() {
               <Pressable onPress={() => setShow3D(false)} accessibilityLabel="Cerrar vista 3D"><Ionicons name="close" size={24} color="#64748B" /></Pressable>
             </View>
             <View style={styles.viewer}>
-              <View style={styles.viewerTop}><Text style={styles.viewerLabel}>VISTA ILUSTRATIVA</Text><View style={styles.viewerPill}><View style={styles.viewerDot} /><Text style={styles.viewerPillText}>Componentes seleccionables</Text></View></View>
-              <View style={styles.planeStage}>
-                <View style={styles.planeShadow} />
-                <View style={styles.wingBack} />
-                <View style={styles.fuselage} />
-                <View style={styles.wingFront} />
-                <View style={styles.tailPlane} />
-                <View style={styles.engineLeft} />
-                <View style={styles.engineRight} />
-                {selected?.parts.map((part, index) => {
-                  const positions = [
-                    { top: '18%', left: '20%' }, { top: '58%', left: '67%' },
-                    { top: '28%', left: '68%' }, { top: '70%', left: '34%' },
-                  ];
-                  const pos = positions[index % positions.length];
-                  const active = selectedPart?.name === part.name;
-                  return (
-                    <Pressable key={part.name} onPress={() => setSelectedPart(part)} style={[styles.hotspot, pos as any, { backgroundColor: statusColor(part.status), borderColor: active ? '#FFFFFF' : statusColor(part.status), transform: [{ scale: active ? 1.2 : 1 }] }]}>
-                      <Text style={styles.hotspotText}>{index + 1}</Text>
-                    </Pressable>
-                  );
-                })}
+              <View style={styles.viewerTop}>
+                <Text style={styles.viewerLabel}>MODELO 3D INTERACTIVO</Text>
+                <View style={styles.viewerPill}><View style={styles.viewerDot} /><Text style={styles.viewerPillText}>Gira y acerca con los dedos o el ratón</Text></View>
               </View>
-              <Text style={styles.viewerHelp}>Selecciona un punto numerado para consultar el estado del componente.</Text>
+              <View style={{ marginTop: 10 }}>
+                <AircraftModel3D height={300} />
+              </View>
+              <Text style={styles.viewerHelp}>Modelo exterior de referencia. Selecciona un componente en la lista inferior para revisar su estado y las observaciones registradas.</Text>
             </View>
-            <View style={styles.partsList}>
+            <ScrollView style={styles.partsList} nestedScrollEnabled>
               {selected?.parts.map((part, index) => (
                 <Pressable key={part.name} onPress={() => setSelectedPart(part)} style={[styles.partPick, selectedPart?.name === part.name && styles.partPickActive]}>
                   <View style={[styles.partNumber, { backgroundColor: statusColor(part.status) }]}><Text style={styles.partNumberText}>{index + 1}</Text></View>
@@ -267,7 +278,7 @@ export default function FleetScreen() {
                   <Ionicons name="chevron-forward" size={17} color="#64748B" />
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
             {selectedPart && (
               <View style={styles.finding}>
                 <Text style={styles.findingTitle}>{selectedPart.name} · {selectedPart.status}</Text>
@@ -282,7 +293,7 @@ export default function FleetScreen() {
                 </View>
               </View>
             )}
-            <Text style={styles.disclaimer}>Prototipo visual: no es un modelo 3D técnico a escala ni una herramienta de diagnóstico certificado.</Text>
+            <Text style={styles.disclaimer}>El modelo 3D es una referencia visual exterior. Los estados y observaciones son datos de demostración, no diagnóstico aeronáutico ni inspección certificada.</Text>
             <Pressable onPress={() => setShow3D(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Volver a la ficha</Text></Pressable>
           </View>
         </View>
