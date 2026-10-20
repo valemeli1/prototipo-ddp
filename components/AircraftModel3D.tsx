@@ -12,16 +12,63 @@ const viewerHtml = (modelUrl: string) => `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0F2942; font-family: Arial, sans-serif; }
-  model-viewer { width: 100%; height: 100%; min-height: 300px; background: radial-gradient(ellipse at 50% 42%, #244965 0%, #0F2942 72%); --poster-color: #0F2942; }
-  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: #E0F2FE; font-size: 13px; pointer-events: none; }
-  model-viewer[loaded] + .loading { display: none; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0F2942; color: #E0F2FE; font-family: Arial, sans-serif; }
+  model-viewer { position:absolute; inset:0; width:100%; height:100%; background: radial-gradient(ellipse at 50% 42%, #244965 0%, #0F2942 72%); --poster-color: #0F2942; }
+  #loading, #fallback { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:18px; text-align:center; background:#0F2942; }
+  #loading { z-index:2; }
+  #loading[hidden], #fallback[hidden] { display:none; }
+  #fallback { z-index:3; }
+  .hint { font-size:12px; line-height:1.5; color:#BAE6FD; max-width:320px; }
+  .title { font-size:14px; font-weight:700; }
+  svg { width:min(92%, 390px); max-height:230px; }
+  .outline { stroke:#7DD3FC; stroke-width:2; stroke-linejoin:round; fill:#164E70; }
+  .part { fill:#38BDF8; stroke:#BAE6FD; stroke-width:1.4; }
+  .label { font-size:11px; fill:#E0F2FE; }
 </style>
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.4.0/model-viewer.min.js"></script>
 </head>
 <body>
-<model-viewer src="${modelUrl}" alt="Modelo 3D de avión comercial" camera-controls auto-rotate rotation-per-second="12deg" shadow-intensity="1" exposure="1.15" environment-image="neutral" camera-orbit="35deg 68deg auto" min-camera-orbit="auto 15deg auto" max-camera-orbit="auto 115deg auto" interaction-prompt="auto" touch-action="pan-y" loading="eager"></model-viewer>
-<div class="loading">Cargando modelo 3D del avión…</div>
+<model-viewer id="aircraft" src="${modelUrl}" alt="Modelo 3D de avión comercial" camera-controls auto-rotate rotation-per-second="12deg" shadow-intensity="1" exposure="1.15" environment-image="neutral" camera-orbit="35deg 68deg auto" min-camera-orbit="auto 15deg auto" max-camera-orbit="auto 115deg auto" interaction-prompt="auto" touch-action="pan-y" loading="eager"></model-viewer>
+<div id="loading"><div class="title">Cargando modelo 3D…</div><div class="hint">Si el modelo remoto no responde, mostraremos un esquema para que la vista no quede en blanco.</div></div>
+<div id="fallback" hidden>
+  <div class="title">Vista esquemática del avión</div>
+  <svg viewBox="0 0 360 220" role="img" aria-label="Esquema de avión con fuselaje, alas, motores y estabilizadores">
+    <path class="outline" d="M180 15 C171 34 171 61 171 83 L90 130 L90 145 L172 119 L172 170 L143 191 L143 201 L180 190 L217 201 L217 191 L188 170 L188 119 L270 145 L270 130 L189 83 C189 61 189 34 180 15Z"/>
+    <path class="part" d="M166 94 L132 117 L148 122 L173 111Z"/>
+    <path class="part" d="M194 94 L228 117 L212 122 L187 111Z"/>
+    <path class="part" d="M174 153 L151 169 L163 172 L177 164Z"/>
+    <path class="part" d="M186 153 L209 169 L197 172 L183 164Z"/>
+    <path class="part" d="M171 34 Q180 20 189 34 L188 48 L172 48Z"/>
+    <path class="part" d="M173 177 L180 190 L187 177 L180 181Z"/>
+    <text class="label" x="12" y="120">Ala izquierda</text><path stroke="#7DD3FC" d="M85 123 L135 112"/>
+    <text class="label" x="242" y="120">Ala derecha</text><path stroke="#7DD3FC" d="M238 123 L225 112"/>
+    <text class="label" x="12" y="70">Fuselaje</text><path stroke="#7DD3FC" d="M67 73 L170 73"/>
+    <text class="label" x="232" y="178">Motores</text><path stroke="#7DD3FC" d="M229 174 L204 166"/>
+    <text class="label" x="12" y="190">Estabilizadores</text><path stroke="#7DD3FC" d="M105 187 L151 184"/>
+  </svg>
+  <div class="hint">No se pudo descargar el archivo 3D. Revisa tu conexión y la URL del modelo. La ficha de componentes sigue disponible debajo de esta vista.</div>
+</div>
+<script>
+(function () {
+  const model = document.getElementById('aircraft');
+  const loading = document.getElementById('loading');
+  const fallback = document.getElementById('fallback');
+  let finished = false;
+  function showFallback() {
+    if (finished) return;
+    finished = true;
+    loading.hidden = true;
+    fallback.hidden = false;
+    model.style.display = 'none';
+  }
+  model.addEventListener('load', function () {
+    finished = true;
+    loading.hidden = true;
+  });
+  model.addEventListener('error', showFallback);
+  setTimeout(showFallback, 15000);
+})();
+</script>
 </body>
 </html>`;
 
@@ -57,9 +104,12 @@ export default function AircraftModel3D({ height = 290 }: Props) {
         startInLoadingState
         renderLoading={() => (
           <View style={styles.loading}>
-            <Text style={styles.loadingText}>Cargando modelo 3D del avión…</Text>
+            <Text style={styles.loadingText}>Abriendo visor 3D…</Text>
           </View>
         )}
+        onError={() => {
+          // The HTML viewer also has an in-page fallback for model download errors.
+        }}
       />
     </View>
   );
