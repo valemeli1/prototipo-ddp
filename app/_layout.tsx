@@ -1,50 +1,65 @@
-import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import React from 'react';
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
-
-export { ErrorBoundary } from 'expo-router';
-
-export const unstable_settings = {
-  initialRouteName: 'login',
-};
-
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) return null;
-
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
+export default function TabLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="login" options={{ animation: 'fade' }} />
-        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: '#0284C7',
+        tabBarInactiveTintColor: '#64748B',
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E2E8F0',
+          height: Platform.OS === 'ios' ? 88 : 62,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '700',
+          marginTop: -2,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Dashboard',
+          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size - 2} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="fleet"
+        options={{
+          title: 'Flota',
+          tabBarIcon: ({ color, size }) => <Ionicons name="airplane-outline" size={size - 2} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="checklist"
+        options={{
+          title: 'Checklist',
+          tabBarIcon: ({ color, size }) => <Ionicons name="checkbox-outline" size={size - 2} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="alerts"
+        options={{
+          title: 'Alertas',
+          tabBarIcon: ({ color, size }) => <Ionicons name="alert-circle-outline" size={size - 2} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'Historial',
+          tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" size={size - 2} color={color} />,
+        }}
+      />
+    </Tabs>
   );
 }
