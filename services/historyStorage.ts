@@ -16,6 +16,7 @@ export interface UserAccount {
   email: string;
   name: string;
   license: string;
+  password?: string;
 }
 
 const STORAGE_KEY = '@oma_maintenance_history_v1';
@@ -37,7 +38,14 @@ export const INITIAL_RECORDS: HistoryRecord[] = [
 
 let memoryHistory: HistoryRecord[] = [...INITIAL_RECORDS];
 let activeUserMemory: UserAccount | null = null;
-let usersMemory: UserAccount[] = [];
+let usersMemory: UserAccount[] = [
+  {
+    email: 'valeria@oma.com',
+    name: 'Valeria Hernández',
+    license: 'TMA #402',
+    password: 'password123',
+  },
+];
 let listeners: Array<() => void> = [];
 
 // --- ALMACENAMIENTO DE HISTORIAL ---
@@ -68,7 +76,7 @@ export const addHistoryRecord = (record: Omit<HistoryRecord, 'id' | 'date'>): Hi
   const current = getStoredHistory();
   const now = new Date();
   const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  
+
   const newRecord: HistoryRecord = {
     ...record,
     id: `BIT-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
@@ -88,7 +96,59 @@ export const addHistoryRecord = (record: Omit<HistoryRecord, 'id' | 'date'>): Hi
   return newRecord;
 };
 
-// --- GESTIÓN DE USUARIOS Y SESIÓN ---
+// --- GESTIÓN DE USUARIOS Y REGISTRO PERSISTENTE ---
+
+export const loadUsersAsync = async (): Promise<UserAccount[]> => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const saved = localStorage.getItem(USERS_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.length > 0) {
+          usersMemory = parsed;
+          return parsed;
+        }
+      } catch (e) { /* fallback */ }
+    }
+    localStorage.setItem(USERS_KEY, JSON.stringify(usersMemory));
+  } else {
+    try {
+      const saved = await AsyncStorage.getItem(USERS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.length > 0) usersMemory = parsed;
+      } else {
+        await AsyncStorage.setItem(USERS_KEY, JSON.stringify(usersMemory));
+      }
+    } catch (e) {
+      console.error('Error cargando usuarios nativos:', e);
+    }
+  }
+  return usersMemory;
+};
+
+export const getAllUsers = (): UserAccount[] => usersMemory;
+
+export const registerUserAsync = async (user: UserAccount): Promise<boolean> => {
+  await loadUsersAsync();
+
+  // Comprobar si ya existe una cuenta con ese correo
+  if (usersMemory.some(u => u.email.toLowerCase() === user.email.toLowerCase())) {
+    return false;
+  }
+
+  usersMemory.push(user);
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    localStorage.setItem(USERS_KEY, JSON.stringify(usersMemory));
+  } else {
+    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(usersMemory));
+  }
+
+  return true;
+};
+
+// --- SESIÓN ACTIVA ---
 
 export const getActiveUser = (): UserAccount | null => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -128,14 +188,4 @@ export const logoutUser = () => {
   } else {
     AsyncStorage.removeItem(SESSION_KEY).catch(console.error);
   }
-};
-
-export const getAllUsers = (): UserAccount[] => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const saved = localStorage.getItem(USERS_KEY);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-  }
-  return usersMemory;
 };

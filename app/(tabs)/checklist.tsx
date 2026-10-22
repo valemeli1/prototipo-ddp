@@ -1,155 +1,445 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  TextInput,
+  Modal,
+  Alert,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { addHistoryRecord, getActiveUser } from '../../services/historyStorage';
 
-interface Task {
+type AircraftOption = {
   id: string;
-  label: string;
-  completed: boolean;
+  tail: string;
+  model: string;
+};
+
+const FLEET_OPTIONS: AircraftOption[] = [
+  { id: '1', tail: 'N102-YS', model: 'Boeing 737-800' },
+  { id: '2', tail: 'YS-741', model: 'Airbus A320' },
+  { id: '3', tail: 'N508-YS', model: 'Embraer 190' },
+  { id: '4', tail: 'YS-209', model: 'Boeing 787-9' },
+];
+
+type InspectionType = 'PRE_FLIGHT' | 'DAILY_CHECK' | 'POST_FLIGHT';
+
+type ControlStatus = 'SAT' | 'FAIL' | 'NA';
+
+interface ControlPoint {
+  id: string;
+  ata: string;
+  title: string;
+  description: string;
+  hasMeasurement?: boolean;
+  unit?: string;
+  placeholder?: string;
 }
 
-const FLEET_AIRCRAFT = [
-  { registration: 'N102-YS', model: 'Boeing 737-800', type: 'Pre-Vuelo / Rutina Diaria' },
-  { registration: 'YS-741', model: 'Airbus A320', type: 'Inspección AOG / Térmica' },
-  { registration: 'YS-302', model: 'Embraer E190', type: 'Mantenimiento Preventivo 35h' },
+const CONTROL_POINTS: ControlPoint[] = [
+  {
+    id: '1',
+    ata: 'ATA 32 - Landing Gear',
+    title: 'Presión de Neumáticos (Tren Principal)',
+    description: 'Verificación visual de desgaste, cortes y presión operativa en PSI.',
+    hasMeasurement: true,
+    unit: 'PSI',
+    placeholder: 'Ej. 205',
+  },
+  {
+    id: '2',
+    ata: 'ATA 32 - Landing Gear',
+    title: 'Pines de Desgaste de Frenos (Brake Wear Pins)',
+    description: 'Inspección del margen de desgaste de paquetes de frenos izq/der.',
+    hasMeasurement: true,
+    unit: 'mm',
+    placeholder: 'Ej. 12.5',
+  },
+  {
+    id: '3',
+    ata: 'ATA 29 - Hydraulic Power',
+    title: 'Nivel y Presión de Sistemas Hidráulicos (A/B)',
+    description: 'Comprobación de acumuladores, fugas en actuadores y nivel de depósito.',
+    hasMeasurement: true,
+    unit: 'PSI',
+    placeholder: 'Ej. 3000',
+  },
+  {
+    id: '4',
+    ata: 'ATA 71/79 - Powerplant & Oil',
+    title: 'Nivel de Aceite en Motores Principales (ENG 1 / ENG 2)',
+    description: 'Verificación de nivel de aceite en visores antes de 30 min de apagado.',
+    hasMeasurement: true,
+    unit: 'Quarts',
+    placeholder: 'Ej. 16.5',
+  },
+  {
+    id: '5',
+    ata: 'ATA 28 - Fuel System',
+    title: 'Drenaje y Verificación de Tanques de Combustible',
+    description: 'Inspección de muestras en sumideros para detectar agua o contaminación.',
+  },
+  {
+    id: '6',
+    ata: 'ATA 27 - Flight Controls',
+    title: 'Integridad y Libertad de Movimiento de Superficies',
+    description: 'Inspección visual de alerones, flaps, spoilers y timón de dirección.',
+  },
 ];
 
 export default function ChecklistScreen() {
-  const [selectedAircraft, setSelectedAircraft] = useState(FLEET_AIRCRAFT[0]);
-  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [lastSavedFolio, setLastSavedFolio] = useState('');
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
 
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: '1', label: 'Verificación de presión y estado de neumáticos del tren principal', completed: false },
-    { id: '2', label: 'Inspección visual de fugas en actuadores hidráulicos', completed: false },
-    { id: '3', label: 'Comprobación de niveles de aceite en motores principales', completed: false },
-    { id: '4', label: 'Verificación de integridad estructural en revestimiento de alas', completed: false },
-  ]);
+  const [selectedAircraft, setSelectedAircraft] = useState<AircraftOption>(FLEET_OPTIONS[0]);
+  const [inspectionType, setInspectionType] = useState<InspectionType>('DAILY_CHECK');
+  const [stationCode, setStationCode] = useState('MSLP / SAL');
+  const [toolCalibNumber, setToolCalibNumber] = useState('TL-MAN-2026-884');
 
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  const [statuses, setStatuses] = useState<Record<string, ControlStatus>>({});
+  const [measurements, setMeasurements] = useState<Record<string, string>>({});
+  const [discrepancyNotes, setDiscrepancyNotes] = useState('');
+  const [isMelDeferred, setIsMelDeferred] = useState(false);
+
+  const [isAircraftModalOpen, setIsAircraftModalOpen] = useState(false);
+
+  const activeUser = getActiveUser();
+
+  const handleSetStatus = (id: string, status: ControlStatus) => {
+    setStatuses(prev => ({ ...prev, [id]: status }));
   };
 
-  const handleSignAndSubmit = () => {
-    const completedCount = tasks.filter(t => t.completed).length;
-    const activeUser = getActiveUser();
-    const inspectorName = `${activeUser.name} (${activeUser.license})`;
+  const handleSetMeasurement = (id: string, val: string) => {
+    setMeasurements(prev => ({ ...prev, [id]: val }));
+  };
+
+  const totalPoints = CONTROL_POINTS.length;
+  const evaluatedCount = Object.keys(statuses).length;
+  const failCount = Object.values(statuses).filter(s => s === 'FAIL').length;
+  const isFormComplete = evaluatedCount === totalPoints;
+
+  const handleValidateAndSign = () => {
+    if (!isFormComplete) {
+      const msg = `Por favor evalúa todos los puntos de control (${evaluatedCount}/${totalPoints} evaluados).`;
+      if (Platform.OS === 'web') alert(msg);
+      else Alert.alert('Inspección Incompleta', msg);
+      return;
+    }
+
+    if (failCount > 0 && !discrepancyNotes.trim()) {
+      const msg = 'Se han detectado fallos (FAIL). Debes redactar el reporte de la novedad técnica.';
+      if (Platform.OS === 'web') alert(msg);
+      else Alert.alert('Novedad no documentada', msg);
+      return;
+    }
+
+    const now = new Date();
+    const utcTime = `${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')} UTC`;
     
-    const newRecord = addHistoryRecord({
-      registration: selectedAircraft.registration,
-      model: selectedAircraft.model,
-      status: completedCount === tasks.length ? 'Aprobado y Transmitido' : 'Pendiente / Observaciones',
-      inspector: inspectorName,
-      tasksCompleted: `${completedCount}/${tasks.length} Puntos verificados`,
-      notes: `Inspección realizada sobre ${selectedAircraft.type}. ${completedCount} de ${tasks.length} tareas validadas.`,
+    const inspectorName = activeUser
+      ? `${activeUser.name} (${activeUser.license})`
+      : 'Técnico TMA (Valeria Hernández - TMA #402)';
+
+    let statusText = 'Aprobado y Transmitido';
+    if (failCount > 0) {
+      statusText = isMelDeferred ? 'Diferido bajo MEL' : 'AOG / Inoperativo';
+    }
+
+    let inspectionTypeName = 'Rutina Diaria (Daily Check)';
+    if (inspectionType === 'PRE_FLIGHT') inspectionTypeName = 'Pre-Vuelo (PFC)';
+    if (inspectionType === 'POST_FLIGHT') inspectionTypeName = 'Post-Vuelo (Transit Check)';
+
+    let summaryNotes = `[${inspectionTypeName} - Estación: ${stationCode} - ${utcTime}]\n`;
+    summaryNotes += `Herramienta Calibrada: ${toolCalibNumber}\n`;
+
+    CONTROL_POINTS.forEach(item => {
+      const st = statuses[item.id] || 'N/A';
+      const meas = measurements[item.id] ? ` [Lectura: ${measurements[item.id]} ${item.unit || ''}]` : '';
+      summaryNotes += `• ${item.title}: ${st}${meas}\n`;
     });
 
-    setLastSavedFolio(newRecord.id);
-    setIsSuccessModalOpen(true);
-  };
+    if (failCount > 0) {
+      summaryNotes += `\n⚠️ NOVEDAD REGISTRADA: ${discrepancyNotes.trim()}`;
+      if (isMelDeferred) summaryNotes += ' (Diferido bajo procedimiento MEL)';
+    }
 
-  const handleCloseSuccess = () => {
-    setIsSuccessModalOpen(false);
-    setTasks(tasks.map(t => ({ ...t, completed: false })));
-  };
+    addHistoryRecord({
+      registration: selectedAircraft.tail,
+      model: selectedAircraft.model,
+      status: statusText,
+      inspector: inspectorName,
+      tasksCompleted: `${evaluatedCount - failCount}/${totalPoints} SAT (${failCount} FAIL)`,
+      notes: summaryNotes,
+    });
 
-  const completedCount = tasks.filter(t => t.completed).length;
+    const successMsg = `Inspección de ${selectedAircraft.tail} firmada e incorporada a la bitácora técnica con éxito.`;
+    if (Platform.OS === 'web') alert(successMsg);
+    else Alert.alert('Inspección Registrada', successMsg);
+
+    // Reiniciar formulario
+    setStatuses({});
+    setMeasurements({});
+    setDiscrepancyNotes('');
+    setIsMelDeferred(false);
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { padding: isMobile ? 12 : 24 }]}>
+      {/* CABECERA */}
       <View style={styles.headerBox}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View>
-            <Text style={styles.headerLabel}>Aeronave Activa:</Text>
-            <Text style={styles.headerAircraft}>{selectedAircraft.registration} ({selectedAircraft.model})</Text>
-            <Text style={styles.headerSub}>{selectedAircraft.type}</Text>
+        <Text style={styles.eyebrow}>SISTEMA DE MANTENIMIENTO RAC-145 / EASA</Text>
+        <Text style={styles.title}>Inspección y Lista de Verificación</Text>
+        <Text style={styles.subtitle}>
+          Formulario de control técnico oficial con trazabilidad de mediciones y firma TMA.
+        </Text>
+      </View>
+
+      {/* SELECCIÓN DE AERONAVE Y TIPO DE INSPECCIÓN */}
+      <View style={styles.topCard}>
+        <View style={styles.cardHeaderRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardEyebrow}>AERONAVE SELECCIONADA</Text>
+
+            <View style={styles.aircraftContentRow}>
+              <Text style={styles.aircraftTail}>{selectedAircraft.tail}</Text>
+              <Text style={styles.aircraftModel}>({selectedAircraft.model})</Text>
+
+              <Pressable style={styles.changeBtn} onPress={() => setIsAircraftModalOpen(true)}>
+                <Ionicons name="swap-horizontal" size={14} color="#FFFFFF" />
+                <Text style={styles.changeBtnText}>Cambiar</Text>
+              </Pressable>
+            </View>
           </View>
-          <Pressable style={styles.changePlaneBtn} onPress={() => setIsSelectorOpen(true)}>
-            <Ionicons name="swap-horizontal" size={16} color="#FFFFFF" />
-            <Text style={styles.changePlaneText}>Cambiar</Text>
+        </View>
+
+        {/* SELECTOR DE TIPO DE INSPECCIÓN */}
+        <Text style={styles.inputLabel}>Tipo de Inspección:</Text>
+        <View style={styles.inspectionTypeRow}>
+          <Pressable
+            style={[styles.typeChip, inspectionType === 'PRE_FLIGHT' && styles.typeChipActive]}
+            onPress={() => setInspectionType('PRE_FLIGHT')}
+          >
+            <Text style={[styles.typeChipText, inspectionType === 'PRE_FLIGHT' && styles.typeChipTextActive]}>
+              Pre-Vuelo (PFC)
+            </Text>
           </Pressable>
+
+          <Pressable
+            style={[styles.typeChip, inspectionType === 'DAILY_CHECK' && styles.typeChipActive]}
+            onPress={() => setInspectionType('DAILY_CHECK')}
+          >
+            <Text style={[styles.typeChipText, inspectionType === 'DAILY_CHECK' && styles.typeChipTextActive]}>
+              Rutina Diaria
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.typeChip, inspectionType === 'POST_FLIGHT' && styles.typeChipActive]}
+            onPress={() => setInspectionType('POST_FLIGHT')}
+          >
+            <Text style={[styles.typeChipText, inspectionType === 'POST_FLIGHT' && styles.typeChipTextActive]}>
+              Post-Vuelo
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* DATOS DE AUDITORÍA Y HERRAMIENTA */}
+        <View style={[styles.gridRow, { marginTop: 12 }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inputLabel}>Estación / Base ICAO:</Text>
+            <TextInput
+              style={styles.textInputSmall}
+              value={stationCode}
+              onChangeText={setStationCode}
+              placeholder="Ej. MSLP / SAL"
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inputLabel}>S/N Herramienta Calibrada:</Text>
+            <TextInput
+              style={styles.textInputSmall}
+              value={toolCalibNumber}
+              onChangeText={setToolCalibNumber}
+              placeholder="Ej. TL-MAN-884"
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
         </View>
       </View>
 
-      <Text style={styles.title}>Puntos de Control Obligatorios</Text>
+      <Text style={styles.sectionHeading}>Puntos de Control por Capítulos ATA Spec 100</Text>
 
-      {tasks.map(task => (
-        <TouchableOpacity 
-          key={task.id} 
-          style={styles.taskCard} 
-          onPress={() => toggleTask(task.id)}
-          activeOpacity={0.7}
-        >
-          <Ionicons 
-            name={task.completed ? "checkbox" : "square-outline"} 
-            size={24} 
-            color={task.completed ? "#0284C7" : "#94A3B8"} 
+      {/* LISTA DE PUNTOS DE CONTROL */}
+      {CONTROL_POINTS.map(item => {
+        const currentStatus = statuses[item.id];
+        return (
+          <View key={item.id} style={[styles.controlCard, currentStatus === 'FAIL' && styles.controlCardFail]}>
+            <View style={styles.controlCardHeader}>
+              <Text style={styles.ataTag}>{item.ata}</Text>
+              <Text style={styles.controlTitle}>{item.title}</Text>
+              <Text style={styles.controlDesc}>{item.description}</Text>
+            </View>
+
+            {/* BOTONES DE EVALUACIÓN SAT / FAIL / NA */}
+            <View style={styles.evalRow}>
+              <Pressable
+                style={[styles.evalBtn, currentStatus === 'SAT' && styles.evalBtnSat]}
+                onPress={() => handleSetStatus(item.id, 'SAT')}
+              >
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={16}
+                  color={currentStatus === 'SAT' ? '#FFFFFF' : '#059669'}
+                />
+                <Text style={[styles.evalBtnText, currentStatus === 'SAT' && styles.evalBtnTextActive]}>
+                  SAT (Conforme)
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.evalBtn, currentStatus === 'FAIL' && styles.evalBtnFail]}
+                onPress={() => handleSetStatus(item.id, 'FAIL')}
+              >
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={16}
+                  color={currentStatus === 'FAIL' ? '#FFFFFF' : '#DC2626'}
+                />
+                <Text style={[styles.evalBtnText, currentStatus === 'FAIL' && styles.evalBtnTextActive]}>
+                  FAIL (Novedad)
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.evalBtn, currentStatus === 'NA' && styles.evalBtnNa]}
+                onPress={() => handleSetStatus(item.id, 'NA')}
+              >
+                <Ionicons
+                  name="remove-circle-outline"
+                  size={16}
+                  color={currentStatus === 'NA' ? '#FFFFFF' : '#64748B'}
+                />
+                <Text style={[styles.evalBtnText, currentStatus === 'NA' && styles.evalBtnTextActive]}>
+                  N/A
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* CAMPO DE MEDICIÓN CUANTITATIVA */}
+            {item.hasMeasurement && (
+              <View style={styles.measurementBox}>
+                <Ionicons name="speedometer-outline" size={16} color="#0284C7" />
+                <Text style={styles.measurementLabel}>Lectura Numérica ({item.unit}):</Text>
+                <TextInput
+                  style={styles.measurementInput}
+                  placeholder={item.placeholder}
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  value={measurements[item.id] || ''}
+                  onChangeText={val => handleSetMeasurement(item.id, val)}
+                />
+              </View>
+            )}
+          </View>
+        );
+      })}
+
+      {/* SECCIÓN DE DOCUMENTACIÓN DE NOVEDAD SI HAY FALLAS */}
+      {failCount > 0 && (
+        <View style={styles.discrepancyCard}>
+          <View style={styles.discrepancyHeader}>
+            <Ionicons name="warning" size={20} color="#DC2626" />
+            <Text style={styles.discrepancyTitle}>Reporte de Novedad Técnica ({failCount} FAIL)</Text>
+          </View>
+
+          <Text style={styles.inputLabel}>Observaciones y Acción Correctiva / Código de Falla:</Text>
+          <TextInput
+            style={styles.textArea}
+            multiline
+            numberOfLines={3}
+            placeholder="Describe el fallo detectado (ej. Presión de neumático bajo tolerancia en 160 PSI. Se detecta pequeña fuga en válvula...)"
+            placeholderTextColor="#94A3B8"
+            value={discrepancyNotes}
+            onChangeText={setDiscrepancyNotes}
           />
-          <Text style={[styles.taskText, task.completed && styles.taskCompletedText]}>
-            {task.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSignAndSubmit}>
+          <Pressable
+            style={styles.melToggleRow}
+            onPress={() => setIsMelDeferred(!isMelDeferred)}
+          >
+            <View style={[styles.melCheckbox, isMelDeferred && styles.melCheckboxActive]}>
+              {isMelDeferred && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.melTitle}>Diferir Novedad bajo Lista de Equipamiento Mínimo (MEL)</Text>
+              <Text style={styles.melSubtitle}>Permite el vuelo con restricciones operativas (Categoría A/B/C/D).</Text>
+            </View>
+          </Pressable>
+        </View>
+      )}
+
+      {/* BOTÓN DE FIRMA Y TRANSMISIÓN */}
+      <Pressable
+        style={[styles.submitBtn, !isFormComplete && styles.submitBtnDisabled]}
+        onPress={handleValidateAndSign}
+      >
         <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
-        <Text style={styles.submitButtonText}>Validar y Firmar Inspección</Text>
-      </TouchableOpacity>
+        <Text style={styles.submitBtnText}>Validar, Firmar y Transmitir Bitácora</Text>
+      </Pressable>
 
-      <Modal visible={isSelectorOpen} transparent animationType="fade" onRequestClose={() => setIsSelectorOpen(false)}>
+      {/* MODAL DE SELECCIÓN DE AERONAVE */}
+      <Modal
+        visible={isAircraftModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsAircraftModalOpen(false)}
+      >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Seleccionar Aeronave</Text>
-              <Pressable onPress={() => setIsSelectorOpen(false)}>
-                <Ionicons name="close" size={20} color="#1E293B" />
+              <Pressable onPress={() => setIsAircraftModalOpen(false)}>
+                <Ionicons name="close" size={20} color="#0F172A" />
               </Pressable>
             </View>
 
-            {FLEET_AIRCRAFT.map((plane, idx) => (
+            {FLEET_OPTIONS.map(ac => (
               <Pressable
-                key={idx}
+                key={ac.id}
                 style={[
-                  styles.planeOption,
-                  selectedAircraft.registration === plane.registration && styles.planeOptionSelected
+                  styles.optionRow,
+                  selectedAircraft.id === ac.id && styles.optionRowSelected,
                 ]}
                 onPress={() => {
-                  setSelectedAircraft(plane);
-                  setIsSelectorOpen(false);
+                  setSelectedAircraft(ac);
+                  setIsAircraftModalOpen(false);
                 }}
               >
-                <Ionicons name="airplane" size={18} color="#0284C7" />
-                <View style={{ marginLeft: 10, flex: 1 }}>
-                  <Text style={styles.planeOptionReg}>{plane.registration}</Text>
-                  <Text style={styles.planeOptionModel}>{plane.model}</Text>
+                <Ionicons
+                  name="airplane-outline"
+                  size={18}
+                  color={selectedAircraft.id === ac.id ? '#0284C7' : '#64748B'}
+                />
+                <View style={{ marginLeft: 10 }}>
+                  <Text
+                    style={[
+                      styles.optionTail,
+                      selectedAircraft.id === ac.id && styles.optionTailSelected,
+                    ]}
+                  >
+                    {ac.tail}
+                  </Text>
+                  <Text style={styles.optionModel}>{ac.model}</Text>
                 </View>
-                {selectedAircraft.registration === plane.registration && (
-                  <Ionicons name="checkmark-circle" size={20} color="#059669" />
-                )}
               </Pressable>
             ))}
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={isSuccessModalOpen} transparent animationType="fade" onRequestClose={handleCloseSuccess}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <View style={{ alignItems: 'center', marginBottom: 16 }}>
-              <Ionicons name="checkmark-circle" size={48} color="#059669" />
-              <Text style={[styles.modalTitle, { marginTop: 10, textAlign: 'center' }]}>Firma Registrada y Guardada</Text>
-            </View>
-            <Text style={{ fontSize: 13, color: '#475569', textAlign: 'center', marginBottom: 16 }}>
-              Folio Asignado: <Text style={{ fontWeight: 'bold', color: '#0284C7' }}>{lastSavedFolio}</Text>{'\n'}
-              Aeronave: <Text style={{ fontWeight: 'bold' }}>{selectedAircraft.registration}</Text>{'\n'}
-              Progreso: <Text style={{ fontWeight: 'bold' }}>{completedCount} de {tasks.length} puntos</Text>{'\n\n'}
-              El reporte se ha guardado en el Historial vinculado a tu cuenta.
-            </Text>
-            <Pressable style={[styles.submitButton, { marginTop: 0 }]} onPress={handleCloseSuccess}>
-              <Text style={styles.submitButtonText}>Aceptar y Limpiar</Text>
-            </Pressable>
           </View>
         </View>
       </Modal>
@@ -158,25 +448,74 @@ export default function ChecklistScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, backgroundColor: '#F8FAFC', maxWidth: 1000, alignSelf: 'center', width: '100%' },
-  headerBox: { backgroundColor: '#0F172A', padding: 20, borderRadius: 14, marginBottom: 20 },
-  headerLabel: { color: '#94A3B8', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  headerAircraft: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', marginTop: 2 },
-  headerSub: { color: '#38BDF8', fontSize: 12, marginTop: 4, fontWeight: '600' },
-  changePlaneBtn: { backgroundColor: '#0284C7', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  changePlaneText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  title: { fontSize: 18, fontWeight: 'bold', color: '#0F172A', marginBottom: 12 },
-  taskCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0' },
-  taskText: { marginLeft: 14, fontSize: 15, color: '#334155', flex: 1 },
-  taskCompletedText: { textDecorationLine: 'line-through', color: '#94A3B8' },
-  submitButton: { flexDirection: 'row', backgroundColor: '#0284C7', padding: 16, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
-  submitButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
+  container: { backgroundColor: '#F8FAFC', maxWidth: 900, alignSelf: 'center', width: '100%' },
+  headerBox: { backgroundColor: '#0F172A', padding: 16, borderRadius: 14, marginBottom: 16 },
+  eyebrow: { fontSize: 9, fontWeight: '800', color: '#0284C7', letterSpacing: 1, marginBottom: 4 },
+  title: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
+  subtitle: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+
+  topCard: { backgroundColor: '#0F172A', borderRadius: 14, padding: 16, marginBottom: 20 },
+  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardEyebrow: { fontSize: 10, fontWeight: '800', color: '#94A3B8', letterSpacing: 0.8, marginBottom: 4 },
+  aircraftContentRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  aircraftTail: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  aircraftModel: { fontSize: 12, color: '#94A3B8', fontWeight: '500' },
+  changeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#0284C7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
+  changeBtnText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+
+  inputLabel: { fontSize: 11, fontWeight: '700', color: '#CBD5E1', marginBottom: 4, marginTop: 4 },
+  inspectionTypeRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  typeChip: { backgroundColor: '#1E293B', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#334155' },
+  typeChipActive: { backgroundColor: '#0284C7', borderColor: '#0284C7' },
+  typeChipText: { color: '#94A3B8', fontSize: 11, fontWeight: '700' },
+  typeChipTextActive: { color: '#FFFFFF' },
+
+  gridRow: { flexDirection: 'row', gap: 10 },
+  textInputSmall: { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: '#FFFFFF', fontSize: 12 },
+
+  sectionHeading: { fontSize: 15, fontWeight: '800', color: '#0F172A', marginBottom: 12 },
+
+  controlCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 },
+  controlCardFail: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
+  controlCardHeader: { marginBottom: 10 },
+  ataTag: { fontSize: 9, fontWeight: '800', color: '#0284C7', marginBottom: 2 },
+  controlTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
+  controlDesc: { fontSize: 11, color: '#64748B', marginTop: 2 },
+
+  evalRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  evalBtn: { flex: 1, minWidth: 100, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' },
+  evalBtnSat: { backgroundColor: '#059669', borderColor: '#059669' },
+  evalBtnFail: { backgroundColor: '#DC2626', borderColor: '#DC2626' },
+  evalBtnNa: { backgroundColor: '#64748B', borderColor: '#64748B' },
+  evalBtnText: { fontSize: 11, fontWeight: '700', color: '#334155' },
+  evalBtnTextActive: { color: '#FFFFFF' },
+
+  measurementBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, backgroundColor: '#F0F9FF', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#BAE6FD' },
+  measurementLabel: { fontSize: 11, fontWeight: '700', color: '#0369A1' },
+  measurementInput: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#7DD3FC', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, color: '#0F172A', width: 90, textAlign: 'center', fontWeight: 'bold' },
+
+  discrepancyCard: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 12, padding: 14, marginBottom: 16 },
+  discrepancyHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  discrepancyTitle: { fontSize: 13, fontWeight: '800', color: '#991B1B' },
+  textArea: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 8, padding: 10, fontSize: 12, color: '#0F172A', textAlignVertical: 'top', minHeight: 70 },
+
+  melToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, backgroundColor: '#FFFBEB', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A' },
+  melCheckbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 2, borderColor: '#D97706', justifyContent: 'center', alignItems: 'center' },
+  melCheckboxActive: { backgroundColor: '#D97706' },
+  melTitle: { fontSize: 11, fontWeight: '800', color: '#92400E' },
+  melSubtitle: { fontSize: 10, color: '#B45309' },
+
+  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#0284C7', paddingVertical: 14, borderRadius: 12, marginTop: 8, marginBottom: 24 },
+  submitBtnDisabled: { opacity: 0.5 },
+  submitBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, width: '100%', maxWidth: 400, padding: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A' },
-  planeOption: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 8, backgroundColor: '#F8FAFC' },
-  planeOptionSelected: { borderColor: '#0284C7', backgroundColor: '#F0F9FF' },
-  planeOptionReg: { fontSize: 14, fontWeight: 'bold', color: '#0F172A' },
-  planeOptionModel: { fontSize: 11, color: '#64748B' },
+  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 18, width: '100%', maxWidth: 380, padding: 18 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  modalTitle: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  optionRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 8 },
+  optionRowSelected: { borderColor: '#0284C7', backgroundColor: '#F0F9FF' },
+  optionTail: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  optionTailSelected: { color: '#0284C7' },
+  optionModel: { fontSize: 10, color: '#64748B' },
 });

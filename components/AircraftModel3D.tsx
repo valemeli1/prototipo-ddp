@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -14,6 +13,7 @@ export type AircraftMarkerPart = {
 type Props = {
   height?: number;
   parts?: AircraftMarkerPart[];
+  focusedPart?: string | null;
 };
 
 const markerPosition = (name: string) => {
@@ -43,7 +43,7 @@ const escapeHtml = (value: string) =>
     "'": '&#39;',
   }[ch] as string));
 
-const viewerHtml = (modelUrl: string, markersHtml: string) => `<!doctype html>
+const viewerHtml = (modelUrl: string, markersHtml: string, focusedPartName?: string | null) => `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -85,6 +85,13 @@ model-viewer {
 [data-pos="tail"] { right: 2%; top: 15%; }
 [data-pos="other"] { left: 2%; top: 10%; }
 
+#focus-tag {
+  position: absolute; top: 12px; left: 12px; z-index: 2;
+  background: rgba(2, 132, 199, 0.9); color: #FFFFFF;
+  padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 800;
+  border: 1px solid #38BDF8; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
 #loading, #fallback {
   position: absolute; inset: 0; z-index: 3;
   display: flex; flex-direction: column;
@@ -104,6 +111,8 @@ svg { width: 95%; max-height: 230px; }
 src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.4.0/model-viewer.min.js"></script>
 </head>
 <body>
+${focusedPartName ? `<div id="focus-tag">COMPONENTE EN ENFOQUE: ${escapeHtml(focusedPartName)}</div>` : ''}
+
 <model-viewer id="aircraft"
   src="${modelUrl}"
   alt="Modelo 3D de avión comercial"
@@ -177,19 +186,22 @@ src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.4.0/model-viewer.min.j
 export default function AircraftModel3D({
   height = 290,
   parts = [],
+  focusedPart = null,
 }: Props) {
+  // Filtrar partes que requieren revisión/crítico o la parte enfocada
   const flaggedParts = parts.filter(
-    (part) => part.status !== 'Correcto'
+    (part) => part.status !== 'Correcto' || (focusedPart && part.name === focusedPart)
   );
 
   const markersHtml = flaggedParts.map((part) => {
+    const isFocused = focusedPart && part.name === focusedPart;
     const color =
-      part.status === 'Crítico' ? '#F87171' : '#FDBA74';
+      part.status === 'Crítico' ? '#F87171' : part.status === 'Revisar' ? '#FDBA74' : '#38BDF8';
 
     return (
       '<div class="marker" data-pos="' +
       markerPosition(part.name) +
-      '" style="color:' + color + '">' +
+      '" style="color:' + color + ';' + (isFocused ? 'border-width:2px;box-shadow:0 0 12px ' + color + ';' : '') + '">' +
       '<strong><span class="pin"></span>' +
       escapeHtml(part.status) +
       '</strong>' +
@@ -198,8 +210,7 @@ export default function AircraftModel3D({
     );
   }).join('');
 
-  // Corrección: se pasan los dos argumentos requeridos.
-  const html = viewerHtml(AIRCRAFT_MODEL_URL, markersHtml);
+  const html = viewerHtml(AIRCRAFT_MODEL_URL, markersHtml, focusedPart);
 
   if (Platform.OS === 'web') {
     const IFrame = 'iframe' as any;
